@@ -1,70 +1,60 @@
-import { $ } from "bun";
+console.log("Generator: module loaded");
 
 export interface GenerateResult {
   queries: string;
   migrations: string;
 }
+import Generator from "./Generator.elm";
 
 export async function generate(filePath: string): Promise<GenerateResult> {
   // Read the ORM file content
   const ormContent = await Bun.file(filePath).text();
-  
-  // Ensure the generator is compiled
-  await $`elm make src/Generator.elm --output=generator.js`;
 
-  // Create a script to run the Elm worker
-  const script = `
-    const fs = require('fs');
-    const vm = require('vm');
-    
-    // Read and execute the Elm compiled code
-    const elmCode = fs.readFileSync('./generator.js', 'utf8');
-    const sandbox = { 
-      console, 
-      require, 
-      module: { exports: {} }, 
-      exports: {},
-      setTimeout,
-      setInterval,
-      clearTimeout,
-      clearInterval,
-      Buffer,
-      process,
-      global: {}
-    };
-    
-    // Create Elm in the sandbox
-    sandbox.this = sandbox;
-    vm.createContext(sandbox);
-    vm.runInContext(elmCode, sandbox);
-    
-    const { Elm } = sandbox;
-    const app = Elm.Generator.init({ flags: ${JSON.stringify(ormContent)} });
-    
-    let queries = '';
-    let migrations = '';
-    let receivedCount = 0;
-    
-    app.ports.sendQueries.subscribe((data) => {
-      queries = data;
-      receivedCount++;
-      if (receivedCount === 2) {
-        console.log(JSON.stringify({ queries, migrations }));
-        process.exit(0);
-      }
-    });
-    
-    app.ports.sendMigrations.subscribe((data) => {
-      migrations = data;
-      receivedCount++;
-      if (receivedCount === 2) {
-        console.log(JSON.stringify({ queries, migrations }));
-        process.exit(0);
-      }
-    });
-  `;
+  try {
+    // Import the Elm module directly using Bun's Elm plugin
+    const GeneratorModule = await import("../src/Generator.elm");
 
-  // Run the script and parse the result
-  const result = await $`node -e ${script}`.text();
-  return JSON.parse(result.trim());
+    // The plugin exports the module as default
+    const Generator = GeneratorModule.default || GeneratorModule.Generator;
+
+    if (!Generator) {
+      throw new Error("Generator module not found in Elm compilation output");
+    }
+
+    return new Promise<GenerateResult>((resolve, reject) => {
+      const app = Generator.init({ flags: ormContent });
+
+      let queries = "";
+      let migrations = "";
+      let receivedCount = 0;
+
+      const checkComplete = () => {
+        if (receivedCount === 2) {
+          resolve({ queries, migrations });
+        }
+      };
+
+      app.ports.sendQueries.subscribe((data: string) => {
+        queries = data;
+        receivedCount++;
+        checkComplete();
+      });
+
+      app.ports.sendMigrations.subscribe((data: string) => {
+        migrations = data;
+        receivedCount++;
+        checkComplete();
+      });
+
+      // Add timeout to prevent hanging
+      setTimeout(() => {
+        reject(new Error("Generator timed out"));
+      }, 10000);
+    });
+  } catch (error) {
+    throw new Error(`Failed to load Elm generator: ${error}`);
+  }
+}
+if (import.meta.main) {
+  console.log("Generator:", Generator);
 }

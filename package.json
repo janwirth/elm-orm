@@ -12,5 +12,8 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@janwirth/bun-plugin-elm": "^0.0.1"
   }
 }

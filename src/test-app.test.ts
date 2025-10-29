@@ -1,7 +1,6 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { spawn } from "bun";
-import { Elm } from "../elm-stuff/generated-code/elm-community/elm-test/0.19.1-revision15/elm.js";
+import { Elm } from "./TestApp.elm";
 
 test("TestApp should execute migrations and queries correctly", async () => {
   // Create in-memory SQLite database

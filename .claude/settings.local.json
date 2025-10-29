@@ -3,7 +3,10 @@
     "allow": [
       "Bash(elm make:*)",
       "Bash(bun test:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(bun install:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(bun pm ls:*)"
     ],
     "deny": [],
     "ask": []

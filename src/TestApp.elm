@@ -1,4 +1,4 @@
-module TestApp exposing (main)
+port module TestApp exposing (main)
 
 import Browser
 import Html exposing (Html, div, text)

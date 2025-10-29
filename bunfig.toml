@@ -1,0 +1,4 @@
+[build]
+plugins = [
+  { name = "@janwirth/bun-plugin-elm" }
+]
