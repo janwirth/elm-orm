@@ -102,8 +102,11 @@ extractTypeAliases file =
 generateQueries : List TypeAlias -> String
 generateQueries typeAliases =
     let
+        importSchema =
+            "import Schema exposing (..)\n"
+
         queriesHeader =
-            "module Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Encode as Encode\nimport Time exposing (Posix)\n\n"
+            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Encode as Encode\nimport Time exposing (Posix)\n" ++ importSchema ++ "\n"
 
         typeDefinitions =
             typeAliases
@@ -122,7 +125,7 @@ generateMigrations : List TypeAlias -> String
 generateMigrations typeAliases =
     let
         migrationsHeader =
-            "module Migrations exposing (..)\n\n"
+            "module Generated.Migrations exposing (..)\n\n"
 
         sqlStatements =
             typeAliases

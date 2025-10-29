@@ -1,4 +1,4 @@
-module Migrations exposing (..)
+module Generated.Migrations exposing (..)
 
 usersCreateTable : String
 usersCreateTable =

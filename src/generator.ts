@@ -1,10 +1,11 @@
 console.log("Generator: module loaded");
 
+import { mkdir } from "node:fs/promises";
+
 export interface GenerateResult {
   queries: string;
   migrations: string;
 }
-import Generator from "./Generator.elm";
 
 export async function generate(filePath: string): Promise<GenerateResult> {
   // Read the ORM file content
@@ -12,6 +13,7 @@ export async function generate(filePath: string): Promise<GenerateResult> {
 
   try {
     // Import the Elm module directly using Bun's Elm plugin
+    // @ts-ignore - Elm modules don't have TypeScript declarations
     const GeneratorModule = await import("../src/Generator.elm");
 
     // The plugin exports the module as default
@@ -56,5 +58,17 @@ export async function generate(filePath: string): Promise<GenerateResult> {
   }
 }
 if (import.meta.main) {
-  console.log("Generator:", Generator);
+  // Create and run the generator with the ORM file
+  const result = await generate("./src/ORM.elm");
+
+  // Ensure the Generated directory exists
+  await mkdir("./Generated", { recursive: true });
+
+  // Write the generated files
+  await Bun.write("./Generated/Migrations.elm", result.migrations);
+  await Bun.write("./Generated/Queries.elm", result.queries);
+
+  console.log("Generated files successfully written to:");
+  console.log("- Generated/Migrations.elm");
+  console.log("- Generated/Queries.elm");
 }

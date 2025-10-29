@@ -5,8 +5,8 @@ import Html exposing (Html, div, text)
 import Json.Encode as Encode
 import Task
 import Time
-import Queries exposing (..)
-import Migrations exposing (..)
+import Generated.Queries exposing (..)
+import Generated.Migrations exposing (..)
 
 
 -- PORTS
@@ -55,7 +55,7 @@ update msg model =
             case model.testStatus of
                 NotStarted ->
                     ( { model | testStatus = MigrationsExecuted }
-                    , executeMigration todosCreateTable
+                    , executeMigration Generated.Migrations.todosCreateTable
                     )
                 
                 MigrationsExecuted ->

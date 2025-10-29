@@ -1,1 +1,1 @@
-export { generate, GenerateResult } from "./src/generator";
+export { generate, type GenerateResult } from "./src/generator";

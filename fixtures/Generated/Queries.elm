@@ -1,8 +1,9 @@
-module Queries exposing (..)
+module Generated.Queries exposing (..)
 
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Time exposing (Posix)
+import Schema exposing (..)
 
 type alias FetchedUser =
     { user : User
