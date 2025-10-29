@@ -8,8 +8,8 @@ type alias FetchedUser =
     { id : Int
     , createdAt : Posix
     , updatedAt : Posix
-    , age : Int
     , name : String
+    , age : Int
     }
 
 type alias FetchedTodo =
@@ -26,8 +26,8 @@ userDecoder =
         (Decode.field "id" Decode.int)
         (Decode.field "createdAt" Decode.int |> Decode.map millisToPosix)
         (Decode.field "updatedAt" Decode.int |> Decode.map millisToPosix)
-        (Decode.field "age" Decode.int)
         (Decode.field "name" Decode.string)
+        (Decode.field "age" Decode.int)
 
 createUserQuery : String
 createUserQuery = "INSERT INTO users DEFAULT VALUES"
@@ -44,11 +44,11 @@ deleteUserQuery id = "DELETE FROM users WHERE id = " ++ String.fromInt id
 todoDecoder : Decode.Decoder FetchedTodo
 todoDecoder =
     Decode.map5 FetchedTodo
-        (Decode.field "description" Decode.string)
-        (Decode.field "completed" Decode.bool)
         (Decode.field "id" Decode.int)
         (Decode.field "createdAt" Decode.int |> Decode.map millisToPosix)
         (Decode.field "updatedAt" Decode.int |> Decode.map millisToPosix)
+        (Decode.field "description" Decode.string)
+        (Decode.field "completed" Decode.bool)
 
 createTodoQuery : String
 createTodoQuery = "INSERT INTO todos DEFAULT VALUES"

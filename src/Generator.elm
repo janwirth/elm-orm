@@ -150,16 +150,26 @@ generateTypeDefinition typeAlias =
                 _ ->
                     []
                     
-        -- Hardcode the field order based on the fixture files
+        -- Dynamically generate fields based on the type alias
         fieldsString =
-            if typeName == "User" then
-                "    , age : Int\n    , name : String"
-            else if typeName == "Todo" then
-                "    , description : String\n    , completed : Bool"
-            else
-                fieldsList
-                    |> List.map (\name -> "    , " ++ name)
-                    |> String.join "\n"
+            case typeAlias.typeAnnotation of
+                Node _ (Record recordDefinition) ->
+                    recordDefinition
+                        |> List.map 
+                            (\(Node _ (field, fieldType)) -> 
+                                let
+                                    fieldName = field |> (\(Node _ name) -> name)
+                                    fieldTypeStr =
+                                        case fieldType of
+                                            Node _ (Typed (Node _ (_, "Bool")) _) -> "Bool"
+                                            Node _ (Typed (Node _ (_, "Int")) _) -> "Int"
+                                            _ -> "String"
+                                in
+                                "    , " ++ fieldName ++ " : " ++ fieldTypeStr
+                            )
+                        |> String.join "\n"
+                _ ->
+                    ""
     in
     "type alias " ++ fetchedTypeName ++ " =\n    { id : Int\n    , createdAt : Posix\n    , updatedAt : Posix\n" ++ fieldsString ++ "\n    }"
 
@@ -202,30 +212,42 @@ generateQueryFunctions typeAlias =
                     )
                 |> String.join "\n        "
 
+        -- Count fields to determine the correct Decode.mapN function
+        fieldCount = List.length fields + 3  -- +3 for id, createdAt, updatedAt
+        
+        mapFunction = "Decode.map" ++ String.fromInt fieldCount
+        
+        -- Built-in fields for every model
+        builtInDecoderFields = 
+            [ "(Decode.field \"id\" Decode.int)"
+            , "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)"
+            , "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)"
+            ]
+        typeSpecificDecoderFields =(fields
+                        |> List.map 
+                            (\(Node _ (field, fieldType)) -> 
+                                let
+                                    fieldName = field |> (\(Node _ name) -> name)
+                                    decoderType =
+                                        case fieldType of
+                                            Node _ (Typed (Node _ (_, "Bool")) _) -> "Decode.bool"
+                                            Node _ (Typed (Node _ (_, "Int")) _) -> "Decode.int"
+                                            _ -> "Decode.string"
+                                in
+                                "(Decode.field \"" ++ fieldName ++ "\" " ++ decoderType ++ ")"
+                            )
+                    )
+            
+        -- Combine built-in fields with custom fields
+        allDecoderFields =
+            List.append builtInDecoderFields typeSpecificDecoderFields
+                    
+                |> String.join "\n        "
+                
         decoder =
-            if typeName == "User" then
-                lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
-                lowerTypeName ++ "Decoder =\n    Decode.map5 " ++ fetchedTypeName ++ "\n        " ++ 
-                "(Decode.field \"id\" Decode.int)\n        " ++
-                "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
-                "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
-                "(Decode.field \"age\" Decode.int)\n        " ++
-                "(Decode.field \"name\" Decode.string)"
-            else if typeName == "Todo" then
-                lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
-                lowerTypeName ++ "Decoder =\n    Decode.map5 " ++ fetchedTypeName ++ "\n        " ++ 
-                "(Decode.field \"description\" Decode.string)\n        " ++
-                "(Decode.field \"completed\" Decode.bool)\n        " ++
-                "(Decode.field \"id\" Decode.int)\n        " ++
-                "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
-                "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)"
-            else
-                lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
-                lowerTypeName ++ "Decoder =\n    Decode.map5 " ++ fetchedTypeName ++ "\n        " ++ 
-                "(Decode.field \"id\" Decode.int)\n        " ++
-                "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
-                "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
-                decoderFields
+            lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
+            lowerTypeName ++ "Decoder =\n    " ++ mapFunction ++ " " ++ fetchedTypeName ++ "\n        " ++ 
+            allDecoderFields
 
         queries =
             [ "create" ++ typeName ++ "Query : String"
