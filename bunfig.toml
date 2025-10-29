@@ -1,4 +1,4 @@
-[build]
-plugins = [
-  { name = "@janwirth/bun-plugin-elm" }
+[test]
+preload = [
+  "./preload.ts"
 ]

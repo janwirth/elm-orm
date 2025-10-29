@@ -5,7 +5,7 @@
   "module": "index.ts",
   "type": "module",
   "bin": {
-    "elm-orm": "./index.ts"
+    "elm-orm": "dist/index.js"
   },
   "files": [
     "index.ts",
