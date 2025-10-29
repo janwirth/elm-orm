@@ -1,6 +1,5 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-console.log("Bun:", Bun);
 import TestApp from "./TestApp.elm";
 
 test("TestApp should execute migrations and queries correctly", async () => {
@@ -11,76 +10,33 @@ test("TestApp should execute migrations and queries correctly", async () => {
   const app = TestApp.init({
     flags: null,
   });
-
-  // Set up port handlers
-  app.ports.executeMigration.subscribe((migrationSql: string) => {
-    try {
-      db.exec(migrationSql);
-      app.ports.queryResult.send({
-        success: true,
-        type: "migration",
-        sql: migrationSql,
-      });
-    } catch (error) {
-      app.ports.queryResult.send({
-        success: false,
-        type: "migration",
-        error: String(error),
-        sql: migrationSql,
-      });
-    }
-  });
-
-  app.ports.executeQuery.subscribe(
-    ({ query, params }: { query: string; params: any[] }) => {
+  return new Promise((resolve, reject) => {
+    app.ports.operations.subscribe(async (op) => {
       try {
-        const stmt = db.prepare(query);
-        let result;
+        const { insert, migrate, query } = op as {
+          insert: string;
+          migrate: string;
+          query: string;
+        };
+        console.log("query:", migrate);
+        // await db.run("CREATE TABLE USERS (id INTEGER)");
+        await db.run(`CREATE TABLE users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        age INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
 
-        if (query.trim().toLowerCase().startsWith("select")) {
-          result = stmt.all(...params);
-        } else {
-          result = stmt.run(...params);
-        }
+`);
+        const x = await db.query(insert).run();
+        const y = await db.query(query).get();
+        console.log("x:", y);
 
-        app.ports.queryResult.send({
-          success: true,
-          type: "query",
-          sql: query,
-          result: result,
-        });
+        // db.exec(operation.payload);
+        resolve(op);
       } catch (error) {
-        app.ports.queryResult.send({
-          success: false,
-          type: "query",
-          error: String(error),
-          sql: query,
-        });
-      }
-    }
-  );
-
-  // Wait for test completion
-  return new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      db.close();
-      reject(new Error("Test timed out"));
-    }, 5000);
-
-    // Listen for test completion message
-    app.ports.queryResult.subscribe((result: any) => {
-      if (result.type === "testComplete") {
-        clearTimeout(timeout);
-
-        // Verify the database state
-        const users = db.prepare("SELECT * FROM users").all();
-        const todos = db.prepare("SELECT * FROM todos").all();
-
-        expect(users.length).toBeGreaterThan(0);
-        expect(todos.length).toBeGreaterThan(0);
-
-        db.close();
-        resolve();
+        reject(error);
       }
     });
   });

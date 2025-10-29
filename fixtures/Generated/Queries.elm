@@ -4,6 +4,7 @@ import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (required)
 import Time exposing (Posix)
 import Time exposing (millisToPosix)
+import Schema exposing (..)
 
 type alias FetchedUser =
     { id : Int
@@ -30,8 +31,8 @@ userDecoder =
         |> required "name" Decode.string
         |> required "age" Decode.int
 
-createUserQuery : String
-createUserQuery = "INSERT INTO users DEFAULT VALUES"
+createUserQuery : User -> String
+createUserQuery user = "INSERT INTO users (name, age) VALUES (" ++ user.name ++ ", " ++ String.fromInt user.age ++ ")"
 
 getUserQuery : Int -> String
 getUserQuery id = "SELECT * FROM users WHERE id = " ++ String.fromInt id
@@ -51,8 +52,8 @@ todoDecoder =
         |> required "description" Decode.string
         |> required "completed" Decode.bool
 
-createTodoQuery : String
-createTodoQuery = "INSERT INTO todos DEFAULT VALUES"
+createTodoQuery : Todo -> String
+createTodoQuery todo = "INSERT INTO todos (description, completed) VALUES (" ++ todo.description ++ ", " ++  (if todo.completed then "1" else "0") ++ ")"
 
 getTodoQuery : Int -> String
 getTodoQuery id = "SELECT * FROM todos WHERE id = " ++ String.fromInt id

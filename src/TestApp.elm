@@ -10,9 +10,8 @@ import Generated.Migrations exposing (..)
 
 
 -- PORTS
-port executeMigration : String -> Cmd msg
-port executeQuery : { query : String, params : List Encode.Value } -> Cmd msg
-port queryResult : (Encode.Value -> msg) -> Sub msg
+port operations : { migrate : String, insert: String, query: String } -> Cmd msg
+port operationsResult : (Encode.Value -> msg) -> Sub msg
 
 
 -- MODEL
@@ -24,8 +23,8 @@ type alias Model =
 type TestStatus
     = NotStarted
     | MigrationsExecuted
-    | QueriesExecuted
-    | TestsCompleted
+    | InsertExecuted
+    | QueryExecuted
     | TestsFailed String
 
 
@@ -33,7 +32,11 @@ type TestStatus
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { results = [], testStatus = NotStarted }
-    , executeMigration usersCreateTable
+    , operations 
+        { migrate = usersCreateTable
+        , insert = createUserQuery
+        , query = getAllUsersQuery
+        }
     )
 
 
@@ -41,83 +44,22 @@ init _ =
 type Msg
     = GotQueryResult Encode.Value
     | ExecuteNextTest
-    | CurrentTime Time.Posix
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotQueryResult _ ->
             ( { model | results = model.results ++ [ "Received result" ] }
-            , Task.perform CurrentTime Time.now
+            , Cmd.none
             )
         
-        CurrentTime _ ->
-            case model.testStatus of
-                NotStarted ->
-                    ( { model | testStatus = MigrationsExecuted }
-                    , executeMigration Generated.Migrations.todosCreateTable
-                    )
-                
-                MigrationsExecuted ->
-                    ( { model | testStatus = QueriesExecuted }
-                    , Cmd.batch
-                        [ executeQuery { query = createUserQuery, params = [] }
-                        , executeQuery { query = createTodoQuery, params = [] }
-                        ]
-                    )
-                
-                QueriesExecuted ->
-                    ( { model | testStatus = TestsCompleted }
-                    , Cmd.batch
-                        [ executeQuery { query = getAllUsersQuery, params = [] }
-                        , executeQuery { query = getAllTodosQuery, params = [] }
-                        ]
-                    )
-                
-                TestsCompleted ->
-                    ( model
-                    , executeQuery 
-                        { query = "SELECT 1"
-                        , params = [ Encode.object [ ( "type", Encode.string "testComplete" ) ] ] 
-                        }
-                    )
-                
-                TestsFailed _ ->
-                    ( model, Cmd.none )
-
         ExecuteNextTest ->
-            case model.testStatus of
-                NotStarted ->
-                    ( { model | testStatus = MigrationsExecuted }
-                    , executeMigration todosCreateTable
-                    )
-                
-                _ ->
-                    ( model, Cmd.none )
-
-
--- VIEW
-view : Model -> Html Msg
-view model =
-    div []
-        [ div [] [ text ("Test Status: " ++ testStatusToString model.testStatus) ]
-        , div [] (List.map (\result -> div [] [ text result ]) model.results)
-        ]
-
-testStatusToString : TestStatus -> String
-testStatusToString status =
-    case status of
-        NotStarted -> "Not Started"
-        MigrationsExecuted -> "Migrations Executed"
-        QueriesExecuted -> "Queries Executed"
-        TestsCompleted -> "Tests Completed"
-        TestsFailed error -> "Tests Failed: " ++ error
-
+            (model, Cmd.none)
 
 -- SUBSCRIPTIONS
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    queryResult GotQueryResult
+    operationsResult GotQueryResult
 
 
 -- MAIN
