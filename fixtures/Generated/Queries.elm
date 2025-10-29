@@ -1,6 +1,7 @@
 module Generated.Queries exposing (..)
 
 import Json.Decode as Decode
+import Json.Decode.Pipeline exposing (required)
 import Time exposing (Posix)
 import Time exposing (millisToPosix)
 
@@ -22,12 +23,12 @@ type alias FetchedTodo =
 
 userDecoder : Decode.Decoder FetchedUser
 userDecoder =
-    Decode.map5 FetchedUser
-        (Decode.field "id" Decode.int)
-        (Decode.field "createdAt" Decode.int |> Decode.map millisToPosix)
-        (Decode.field "updatedAt" Decode.int |> Decode.map millisToPosix)
-        (Decode.field "name" Decode.string)
-        (Decode.field "age" Decode.int)
+    Decode.succeed FetchedUser
+        |> required "id" Decode.int
+        |> required "createdAt" (Decode.int |> Decode.map millisToPosix)
+        |> required "updatedAt" (Decode.int |> Decode.map millisToPosix)
+        |> required "name" Decode.string
+        |> required "age" Decode.int
 
 createUserQuery : String
 createUserQuery = "INSERT INTO users DEFAULT VALUES"
@@ -43,12 +44,12 @@ deleteUserQuery id = "DELETE FROM users WHERE id = " ++ String.fromInt id
 
 todoDecoder : Decode.Decoder FetchedTodo
 todoDecoder =
-    Decode.map5 FetchedTodo
-        (Decode.field "id" Decode.int)
-        (Decode.field "createdAt" Decode.int |> Decode.map millisToPosix)
-        (Decode.field "updatedAt" Decode.int |> Decode.map millisToPosix)
-        (Decode.field "description" Decode.string)
-        (Decode.field "completed" Decode.bool)
+    Decode.succeed FetchedTodo
+        |> required "id" Decode.int
+        |> required "createdAt" (Decode.int |> Decode.map millisToPosix)
+        |> required "updatedAt" (Decode.int |> Decode.map millisToPosix)
+        |> required "description" Decode.string
+        |> required "completed" Decode.bool
 
 createTodoQuery : String
 createTodoQuery = "INSERT INTO todos DEFAULT VALUES"

@@ -14,6 +14,8 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@janwirth/bun-plugin-elm": "^0.0.1"
+    "@janwirth/bun-plugin-elm": "^0.0.1",
+    "elm-json-decode-pipeline": "NoRedInk/elm-json-decode-pipeline",
+    "json": "elm/json"
   }
 }
