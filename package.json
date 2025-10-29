@@ -1,11 +1,21 @@
 {
-  "name": "elm-orm",
+  "name": "@janwirth/elm-orm",
+  "version": "0.1.0",
+  "description": "Generate Elm ORM migrations and queries from a schema file",
   "module": "index.ts",
   "type": "module",
-  "private": true,
+  "bin": {
+    "elm-orm": "./index.ts"
+  },
+  "files": [
+    "index.ts",
+    "src/generator.ts",
+    "src/Generator.elm"
+  ],
   "scripts": {
     "test": "bun test",
-    "test:elm": "bun run test-elm-app.js"
+    "test:elm": "bun run test-elm-app.js",
+    "build": "bun build ./index.ts --outdir ./dist --target node"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -15,7 +25,26 @@
   },
   "dependencies": {
     "@janwirth/bun-plugin-elm": "^0.0.1",
+    "commander": "^14.0.2",
     "elm-json-decode-pipeline": "NoRedInk/elm-json-decode-pipeline",
     "json": "elm/json"
+  },
+  "keywords": [
+    "elm",
+    "orm",
+    "database",
+    "sql",
+    "migrations",
+    "queries",
+    "generator"
+  ],
+  "author": "Jan Wirth",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/janwirth/elm-orm"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
   }
 }

@@ -101,7 +101,7 @@ generateQueries : List TypeAlias -> String
 generateQueries typeAliases =
     let
         queriesHeader =
-            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Time exposing (Posix)\nimport Time exposing (millisToPosix)\n\n"
+            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Decode.Pipeline exposing (required)\nimport Time exposing (Posix)\nimport Time exposing (millisToPosix)\n\n"
 
         typeDefinitions =
             typeAliases
@@ -244,10 +244,35 @@ generateQueryFunctions typeAlias =
                     
                 |> String.join "\n        "
                 
+        -- Generate pipeline-style decoder fields
+        pipelineDecoderFields = 
+            -- Start with the type-specific fields
+            fields
+                |> List.map 
+                    (\(Node _ (field, fieldType)) -> 
+                        let
+                            fieldName = field |> (\(Node _ name) -> name)
+                            decoderType =
+                                case fieldType of
+                                    Node _ (Typed (Node _ (_, "Bool")) _) -> "Decode.bool"
+                                    Node _ (Typed (Node _ (_, "Int")) _) -> "Decode.int"
+                                    _ -> "Decode.string"
+                        in
+                        "required \"" ++ fieldName ++ "\" " ++ decoderType
+                    )
+                -- Then add the built-in fields
+                |> List.append
+                    [ "required \"id\" Decode.int"
+                    , "required \"createdAt\" (Decode.int |> Decode.map millisToPosix)"
+                    , "required \"updatedAt\" (Decode.int |> Decode.map millisToPosix)"
+                    ]
+            |> List.map (\field -> "|> " ++ field)
+            |> String.join "\n        "
+            
         decoder =
             lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
-            lowerTypeName ++ "Decoder =\n    " ++ mapFunction ++ " " ++ fetchedTypeName ++ "\n        " ++ 
-            allDecoderFields
+            lowerTypeName ++ "Decoder =\n    Decode.succeed " ++ fetchedTypeName ++ "\n        " ++ 
+            pipelineDecoderFields
 
         queries =
             [ "create" ++ typeName ++ "Query : String"

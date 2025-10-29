@@ -5,6 +5,7 @@
       "name": "elm-orm",
       "dependencies": {
         "@janwirth/bun-plugin-elm": "^0.0.1",
+        "commander": "^14.0.2",
         "elm-json-decode-pipeline": "NoRedInk/elm-json-decode-pipeline",
         "json": "elm/json",
       },
@@ -50,6 +51,8 @@
     "bun": ["bun@1.3.1", "", { "optionalDependencies": { "@oven/bun-darwin-aarch64": "1.3.1", "@oven/bun-darwin-x64": "1.3.1", "@oven/bun-darwin-x64-baseline": "1.3.1", "@oven/bun-linux-aarch64": "1.3.1", "@oven/bun-linux-aarch64-musl": "1.3.1", "@oven/bun-linux-x64": "1.3.1", "@oven/bun-linux-x64-baseline": "1.3.1", "@oven/bun-linux-x64-musl": "1.3.1", "@oven/bun-linux-x64-musl-baseline": "1.3.1", "@oven/bun-windows-x64": "1.3.1", "@oven/bun-windows-x64-baseline": "1.3.1" }, "os": [ "linux", "win32", "darwin", ], "cpu": [ "x64", "arm64", ], "bin": { "bun": "bin/bun.exe", "bunx": "bin/bunx.exe" } }, "sha512-enqkEb0RhNOgDzHQwv7uvnIhX3uSzmKzz779dL7kdH8SauyTdQvCz4O1UT2rU0UldQp2K9OlrJNdyDHayPEIvw=="],
 
     "bun-types": ["bun-types@1.3.1", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-NMrcy7smratanWJ2mMXdpatalovtxVggkj11bScuWuiOoXTiKIu2eVS1/7qbyI/4yHedtsn175n4Sm4JcdHLXw=="],
+
+    "commander": ["commander@14.0.2", "", {}, "sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ=="],
 
     "csstype": ["csstype@3.1.3", "", {}, "sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw=="],
 
