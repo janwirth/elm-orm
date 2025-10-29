@@ -1,32 +1,33 @@
 module Generated.Queries exposing (..)
 
 import Json.Decode as Decode
-import Json.Encode as Encode
 import Time exposing (Posix)
-import Schema exposing (..)
+import Time exposing (millisToPosix)
 
 type alias FetchedUser =
-    { user : User
-    , id : Int
+    { id : Int
     , createdAt : Posix
     , updatedAt : Posix
+    , age : Int
+    , name : String
     }
 
 type alias FetchedTodo =
-    { todo : Todo
-    , id : Int
+    { id : Int
     , createdAt : Posix
     , updatedAt : Posix
+    , description : String
+    , completed : Bool
     }
 
-userDecoder : Decode.Decoder User
+userDecoder : Decode.Decoder FetchedUser
 userDecoder =
-    Decode.succeed User
-        |> Decode.hardcoded 0  -- TODO: Generate proper decoder
-
-userEncoder : User -> Encode.Value
-userEncoder user =
-    Encode.object []  -- TODO: Generate proper encoder
+    Decode.map5 FetchedUser
+        (Decode.field "id" Decode.int)
+        (Decode.field "createdAt" Decode.int |> Decode.map millisToPosix)
+        (Decode.field "updatedAt" Decode.int |> Decode.map millisToPosix)
+        (Decode.field "age" Decode.int)
+        (Decode.field "name" Decode.string)
 
 createUserQuery : String
 createUserQuery = "INSERT INTO users DEFAULT VALUES"
@@ -40,14 +41,14 @@ getAllUsersQuery = "SELECT * FROM users"
 deleteUserQuery : Int -> String
 deleteUserQuery id = "DELETE FROM users WHERE id = " ++ String.fromInt id
 
-todoDecoder : Decode.Decoder Todo
+todoDecoder : Decode.Decoder FetchedTodo
 todoDecoder =
-    Decode.succeed Todo
-        |> Decode.hardcoded 0  -- TODO: Generate proper decoder
-
-todoEncoder : Todo -> Encode.Value
-todoEncoder todo =
-    Encode.object []  -- TODO: Generate proper encoder
+    Decode.map5 FetchedTodo
+        (Decode.field "description" Decode.string)
+        (Decode.field "completed" Decode.bool)
+        (Decode.field "id" Decode.int)
+        (Decode.field "createdAt" Decode.int |> Decode.map millisToPosix)
+        (Decode.field "updatedAt" Decode.int |> Decode.map millisToPosix)
 
 createTodoQuery : String
 createTodoQuery = "INSERT INTO todos DEFAULT VALUES"

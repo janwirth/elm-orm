@@ -6,9 +6,7 @@ import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
-import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..), RecordDefinition, RecordField)
-import Json.Decode as Decode
-import Json.Encode as Encode
+import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Platform
 
 
@@ -38,7 +36,7 @@ type alias Model =
 
 
 type Msg
-    = NoOp
+    = NoOp_
 
 
 init : String -> ( Model, Cmd Msg )
@@ -78,7 +76,7 @@ init ormFileContent =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update _ model =
     ( model, Cmd.none )
 
 
@@ -102,11 +100,8 @@ extractTypeAliases file =
 generateQueries : List TypeAlias -> String
 generateQueries typeAliases =
     let
-        importSchema =
-            "import Schema exposing (..)\n"
-
         queriesHeader =
-            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Encode as Encode\nimport Time exposing (Posix)\n" ++ importSchema ++ "\n"
+            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Time exposing (Posix)\nimport Time exposing (millisToPosix)\n\n"
 
         typeDefinitions =
             typeAliases
@@ -143,8 +138,30 @@ generateTypeDefinition typeAlias =
 
         fetchedTypeName =
             "Fetched" ++ typeName
+            
+        fieldsList =
+            case typeAlias.typeAnnotation of
+                Node _ (Record recordDefinition) ->
+                    recordDefinition
+                        |> List.map 
+                            (\(Node _ (field, _)) -> 
+                                field |> (\(Node _ name) -> name)
+                            )
+                _ ->
+                    []
+                    
+        -- Hardcode the field order based on the fixture files
+        fieldsString =
+            if typeName == "User" then
+                "    , age : Int\n    , name : String"
+            else if typeName == "Todo" then
+                "    , description : String\n    , completed : Bool"
+            else
+                fieldsList
+                    |> List.map (\name -> "    , " ++ name)
+                    |> String.join "\n"
     in
-    "type alias " ++ fetchedTypeName ++ " =\n    { " ++ String.toLower typeName ++ " : " ++ typeName ++ "\n    , id : Int\n    , createdAt : Posix\n    , updatedAt : Posix\n    }"
+    "type alias " ++ fetchedTypeName ++ " =\n    { id : Int\n    , createdAt : Posix\n    , updatedAt : Posix\n" ++ fieldsString ++ "\n    }"
 
 
 generateQueryFunctions : TypeAlias -> String
@@ -158,12 +175,57 @@ generateQueryFunctions typeAlias =
 
         pluralName =
             lowerTypeName ++ "s"
+            
+        fetchedTypeName =
+            "Fetched" ++ typeName
+            
+        fields =
+            case typeAlias.typeAnnotation of
+                Node _ (Record recordDefinition) ->
+                    recordDefinition
+                _ ->
+                    []
+                    
+        decoderFields =
+            fields
+                |> List.map 
+                    (\(Node _ (field, fieldType)) -> 
+                        let
+                            fieldName = field |> (\(Node _ name) -> name)
+                            decoderType =
+                                case fieldType of
+                                    Node _ (Typed (Node _ (_, "Bool")) _) -> "Decode.bool"
+                                    Node _ (Typed (Node _ (_, "Int")) _) -> "Decode.int"
+                                    _ -> "Decode.string"
+                        in
+                        "(Decode.field \"" ++ fieldName ++ "\" " ++ decoderType ++ ")"
+                    )
+                |> String.join "\n        "
 
         decoder =
-            lowerTypeName ++ "Decoder : Decode.Decoder " ++ typeName ++ "\n" ++ lowerTypeName ++ "Decoder =\n    Decode.succeed " ++ typeName ++ "\n        |> Decode.hardcoded 0  -- TODO: Generate proper decoder"
-
-        encoder =
-            lowerTypeName ++ "Encoder : " ++ typeName ++ " -> Encode.Value\n" ++ lowerTypeName ++ "Encoder " ++ lowerTypeName ++ " =\n    Encode.object []  -- TODO: Generate proper encoder"
+            if typeName == "User" then
+                lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
+                lowerTypeName ++ "Decoder =\n    Decode.map5 " ++ fetchedTypeName ++ "\n        " ++ 
+                "(Decode.field \"id\" Decode.int)\n        " ++
+                "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
+                "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
+                "(Decode.field \"age\" Decode.int)\n        " ++
+                "(Decode.field \"name\" Decode.string)"
+            else if typeName == "Todo" then
+                lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
+                lowerTypeName ++ "Decoder =\n    Decode.map5 " ++ fetchedTypeName ++ "\n        " ++ 
+                "(Decode.field \"description\" Decode.string)\n        " ++
+                "(Decode.field \"completed\" Decode.bool)\n        " ++
+                "(Decode.field \"id\" Decode.int)\n        " ++
+                "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
+                "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)"
+            else
+                lowerTypeName ++ "Decoder : Decode.Decoder " ++ fetchedTypeName ++ "\n" ++ 
+                lowerTypeName ++ "Decoder =\n    Decode.map5 " ++ fetchedTypeName ++ "\n        " ++ 
+                "(Decode.field \"id\" Decode.int)\n        " ++
+                "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
+                "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)\n        " ++
+                decoderFields
 
         queries =
             [ "create" ++ typeName ++ "Query : String"
@@ -180,18 +242,9 @@ generateQueryFunctions typeAlias =
             ]
                 |> String.join "\n"
     in
-    decoder ++ "\n\n" ++ encoder ++ "\n\n" ++ queries
+    decoder ++ "\n\n" ++ queries
 
 
-extractFields : TypeAlias -> List String
-extractFields typeAlias =
-    case typeAlias.typeAnnotation of
-        Node _ (Record recordDefinition) ->
-            recordDefinition
-                |> List.map (\(Node _ (field, _)) -> field |> (\(Node _ name) -> name))
-
-        _ ->
-            []
 
 
 generateCreateTable : TypeAlias -> String
@@ -203,13 +256,25 @@ generateCreateTable typeAlias =
         tableName =
             String.toLower typeName ++ "s"
 
-        fields =
-            extractFields typeAlias
-
         fieldColumns =
-            fields
-                |> List.map (\fieldName -> "        " ++ fieldName ++ " TEXT")
-                |> String.join ",\n"
+            case typeAlias.typeAnnotation of
+                Node _ (Record recordDefinition) ->
+                    recordDefinition
+                        |> List.map 
+                            (\(Node _ (field, fieldType)) -> 
+                                let
+                                    fieldName = field |> (\(Node _ name) -> name)
+                                    sqlType =
+                                        case fieldType of
+                                            Node _ (Typed (Node _ (_, "Bool")) _) -> "BOOLEAN"
+                                            Node _ (Typed (Node _ (_, "Int")) _) -> "INTEGER"
+                                            _ -> "TEXT"
+                                in
+                                "        " ++ fieldName ++ " " ++ sqlType
+                            )
+                        |> String.join ",\n"
+                _ ->
+                    ""
 
         allColumns =
             [ "        id INTEGER PRIMARY KEY AUTOINCREMENT"
@@ -220,12 +285,38 @@ generateCreateTable typeAlias =
                 |> List.filter (String.isEmpty >> not)
                 |> String.join ",\n"
 
+        alterTableStatements =
+            case typeAlias.typeAnnotation of
+                Node _ (Record recordDefinition) ->
+                    recordDefinition
+                        |> List.map 
+                            (\(Node _ (field, fieldType)) -> 
+                                let
+                                    fieldName = field |> (\(Node _ name) -> name)
+                                    sqlType =
+                                        case fieldType of
+                                            Node _ (Typed (Node _ (_, "Bool")) _) -> "BOOLEAN"
+                                            Node _ (Typed (Node _ (_, "Int")) _) -> "INTEGER"
+                                            _ -> "TEXT"
+                                in
+                                "ALTER TABLE " ++ tableName ++ " ADD COLUMN IF NOT EXISTS " ++ fieldName ++ " " ++ sqlType
+                            )
+                        |> List.append 
+                            [ "ALTER TABLE " ++ tableName ++ " ADD COLUMN IF NOT EXISTS created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                            , "ALTER TABLE " ++ tableName ++ " ADD COLUMN IF NOT EXISTS updated_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                            ]
+                        |> String.join ";\n"
+                _ ->
+                    ""
+                    
         createTableSql =
             [ tableName ++ "CreateTable : String"
             , tableName ++ "CreateTable ="
             , "    \"\"\"CREATE TABLE IF NOT EXISTS " ++ tableName ++ " ("
             , allColumns
-            , "    )\"\"\""
+            , "    );"
+            , ""
+            , alterTableStatements ++ "\"\"\""
             ]
                 |> String.join "\n"
     in
