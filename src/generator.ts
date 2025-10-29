@@ -1,4 +1,6 @@
 import { mkdir } from "node:fs/promises";
+import Generator from "./Generator.elm";
+console.log("Generator:", Generator);
 
 export interface GenerateResult {
   queries: string;
@@ -12,10 +14,9 @@ export async function generate(filePath: string): Promise<GenerateResult> {
   try {
     // Import the Elm module directly using Bun's Elm plugin
     // @ts-ignore - Elm modules don't have TypeScript declarations
-    const GeneratorModule = await import("../src/Generator.elm");
 
     // Initialize the Elm app
-    const app = GeneratorModule.Elm.Generator.init({ flags: ormContent });
+    const app = Generator.init({ flags: ormContent });
 
     return new Promise<GenerateResult>((resolve, reject) => {
       let queries = "";

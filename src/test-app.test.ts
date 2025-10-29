@@ -1,13 +1,14 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Elm } from "../fixtures/TestApp.elm";
+console.log("Bun:", Bun);
+import TestApp from "./TestApp.elm";
 
 test("TestApp should execute migrations and queries correctly", async () => {
   // Create in-memory SQLite database
   const db = new Database(":memory:");
 
   // Initialize the Elm app
-  const app = Elm.TestApp.init({
+  const app = TestApp.init({
     flags: null,
   });
 

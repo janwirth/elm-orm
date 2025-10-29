@@ -1,7 +1,7 @@
 port module TestApp exposing (main)
 
-import Browser
 import Html exposing (Html, div, text)
+import Platform
 import Json.Encode as Encode
 import Task
 import Time
@@ -123,9 +123,8 @@ subscriptions _ =
 -- MAIN
 main : Program () Model Msg
 main =
-    Browser.element
+    Platform.worker
         { init = init
-        , view = view
         , update = update
         , subscriptions = subscriptions
         }
