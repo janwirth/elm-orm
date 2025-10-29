@@ -34,7 +34,7 @@ init _ =
     ( { results = [], testStatus = NotStarted }
     , operations 
         { migrate = usersCreateTable
-        , insert = createUserQuery
+        , insert = createUserQuery { name = "John Doe", age = 30 }
         , query = getAllUsersQuery
         }
     )

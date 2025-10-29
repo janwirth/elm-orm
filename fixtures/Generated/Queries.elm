@@ -32,7 +32,7 @@ userDecoder =
         |> required "age" Decode.int
 
 createUserQuery : User -> String
-createUserQuery user = "INSERT INTO users (name, age) VALUES (" ++ user.name ++ ", " ++ String.fromInt user.age ++ ")"
+createUserQuery user = "INSERT INTO users (name, age) VALUES (\"" ++ user.name ++ "\", " ++ String.fromInt user.age ++ ")"
 
 getUserQuery : Int -> String
 getUserQuery id = "SELECT * FROM users WHERE id = " ++ String.fromInt id
@@ -53,7 +53,7 @@ todoDecoder =
         |> required "completed" Decode.bool
 
 createTodoQuery : Todo -> String
-createTodoQuery todo = "INSERT INTO todos (description, completed) VALUES (" ++ todo.description ++ ", " ++  (if todo.completed then "1" else "0") ++ ")"
+createTodoQuery todo = "INSERT INTO todos (description, completed) VALUES (\"" ++ todo.description ++ "\", " ++  (if todo.completed then "1" else "0") ++ ")"
 
 getTodoQuery : Int -> String
 getTodoQuery id = "SELECT * FROM todos WHERE id = " ++ String.fromInt id

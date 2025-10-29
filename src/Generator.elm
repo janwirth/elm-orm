@@ -276,9 +276,9 @@ generateQueryFunctions typeAlias =
 
         createQueryImpl =
             if typeName == "User" then
-                "createUserQuery user = \"INSERT INTO users (name, age) VALUES (\" ++ user.name ++ \", \" ++ String.fromInt user.age ++ \")\""
+                "createUserQuery user = \"INSERT INTO users (name, age) VALUES (\\\"\" ++ user.name ++ \"\\\", \" ++ String.fromInt user.age ++ \")\""
             else if typeName == "Todo" then
-                "createTodoQuery todo = \"INSERT INTO todos (description, completed) VALUES (\" ++ todo.description ++ \", \" ++  (if todo.completed then \"1\" else \"0\") ++ \")\""
+                "createTodoQuery todo = \"INSERT INTO todos (description, completed) VALUES (\\\"\" ++ todo.description ++ \"\\\", \" ++  (if todo.completed then \"1\" else \"0\") ++ \")\"" 
             else
                 "create" ++ typeName ++ "Query " ++ lowerTypeName ++ " = \"INSERT INTO " ++ pluralName ++ " (" ++ generateInsertFields fields ++ ") VALUES (\" ++ " ++ generateInsertValues lowerTypeName fields ++ " ++ \")\""
                 
