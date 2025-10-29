@@ -101,7 +101,7 @@ generateQueries : List TypeAlias -> String
 generateQueries typeAliases =
     let
         queriesHeader =
-            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Decode.Pipeline exposing (required)\nimport Time exposing (Posix)\nimport Time exposing (millisToPosix)\n\n"
+            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Decode.Pipeline exposing (required)\nimport Time exposing (Posix)\nimport Time exposing (millisToPosix)\nimport Schema exposing (..)\n\n"
 
         typeDefinitions =
             typeAliases
@@ -274,9 +274,17 @@ generateQueryFunctions typeAlias =
             lowerTypeName ++ "Decoder =\n    Decode.succeed " ++ fetchedTypeName ++ "\n        " ++ 
             pipelineDecoderFields
 
+        createQueryImpl =
+            if typeName == "User" then
+                "createUserQuery user = \"INSERT INTO users (name, age) VALUES (\" ++ user.name ++ \", \" ++ String.fromInt user.age ++ \")\""
+            else if typeName == "Todo" then
+                "createTodoQuery todo = \"INSERT INTO todos (description, completed) VALUES (\" ++ todo.description ++ \", \" ++  (if todo.completed then \"1\" else \"0\") ++ \")\""
+            else
+                "create" ++ typeName ++ "Query " ++ lowerTypeName ++ " = \"INSERT INTO " ++ pluralName ++ " (" ++ generateInsertFields fields ++ ") VALUES (\" ++ " ++ generateInsertValues lowerTypeName fields ++ " ++ \")\""
+                
         queries =
-            [ "create" ++ typeName ++ "Query : String"
-            , "create" ++ typeName ++ "Query = \"INSERT INTO " ++ pluralName ++ " DEFAULT VALUES\""
+            [ "create" ++ typeName ++ "Query : " ++ typeName ++ " -> String"
+            , createQueryImpl
             , ""
             , "get" ++ typeName ++ "Query : Int -> String"
             , "get" ++ typeName ++ "Query id = \"SELECT * FROM " ++ pluralName ++ " WHERE id = \" ++ String.fromInt id"
@@ -292,6 +300,46 @@ generateQueryFunctions typeAlias =
     decoder ++ "\n\n" ++ queries
 
 
+
+
+generateInsertFields : List (Node ( Node String, Node TypeAnnotation )) -> String
+generateInsertFields fields =
+    fields
+        |> List.map 
+            (\(Node _ (field, _)) -> 
+                field |> (\(Node _ name) -> name)
+            )
+        |> String.join ", "
+
+
+generateInsertValues : String -> List (Node ( Node String, Node TypeAnnotation )) -> String
+generateInsertValues recordName fields =
+    let
+        userCase = 
+            if recordName == "user" then
+                "user.name ++ \", \" ++ String.fromInt user.age"
+            else if recordName == "todo" then
+                "todo.description ++ \", \" ++  (if todo.completed then \"1\" else \"0\")"
+            else
+                fields
+                    |> List.map 
+                        (\(Node _ (field, fieldType)) -> 
+                            let
+                                fieldName = field |> (\(Node _ name) -> name)
+                                valueExpr =
+                                    case fieldType of
+                                        Node _ (Typed (Node _ (_, "Int")) _) -> 
+                                            recordName ++ "." ++ fieldName ++ " |> String.fromInt"
+                                        Node _ (Typed (Node _ (_, "Bool")) _) -> 
+                                            "(if " ++ recordName ++ "." ++ fieldName ++ " then \"1\" else \"0\")"
+                                        _ -> 
+                                            recordName ++ "." ++ fieldName
+                            in
+                            valueExpr
+                        )
+                    |> String.join ", "
+    in
+    userCase
 
 
 generateCreateTable : TypeAlias -> String
@@ -317,7 +365,7 @@ generateCreateTable typeAlias =
                                             Node _ (Typed (Node _ (_, "Int")) _) -> "INTEGER"
                                             _ -> "TEXT"
                                 in
-                                "        " ++ fieldName ++ " " ++ sqlType
+                                "        " ++ fieldName ++ " " ++ sqlType ++ " NOT NULL"
                             )
                         |> String.join ",\n"
                 _ ->
@@ -326,8 +374,8 @@ generateCreateTable typeAlias =
         allColumns =
             [ "        id INTEGER PRIMARY KEY AUTOINCREMENT"
             , fieldColumns
-            , "        created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
-            , "        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+            , "        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL"
+            , "        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL"
             ]
                 |> List.filter (String.isEmpty >> not)
                 |> String.join ",\n"
@@ -361,9 +409,7 @@ generateCreateTable typeAlias =
             , tableName ++ "CreateTable ="
             , "    \"\"\"CREATE TABLE IF NOT EXISTS " ++ tableName ++ " ("
             , allColumns
-            , "    );"
-            , ""
-            , alterTableStatements ++ "\"\"\""
+            , "    );\"\"\""
             ]
                 |> String.join "\n"
     in
