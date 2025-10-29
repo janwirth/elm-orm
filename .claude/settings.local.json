@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(elm make:*)",
+      "Bash(bun test:*)",
+      "Bash(node:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
