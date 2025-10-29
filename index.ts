@@ -1,1 +1,1 @@
-console.log("Hello via Bun!");
+export { generate, GenerateResult } from "./src/generator";

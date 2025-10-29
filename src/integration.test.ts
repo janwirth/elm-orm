@@ -1,51 +1,10 @@
 import { test, expect } from "bun:test";
 import { Database } from "bun:sqlite";
-import { $ } from "bun";
+import { generate } from "./generator";
 
 async function getGeneratedMigrations(): Promise<string> {
-  const ormContent = await Bun.file("src/ORM.elm").text();
-  
-  // First ensure the generator is compiled
-  await $`elm make src/Generator.elm --output=generator.js`;
-
-  const script = `
-    const fs = require('fs');
-    const vm = require('vm');
-    
-    const elmCode = fs.readFileSync('./generator.js', 'utf8');
-    const sandbox = { 
-      console, 
-      require, 
-      module: { exports: {} }, 
-      exports: {},
-      setTimeout,
-      setInterval,
-      clearTimeout,
-      clearInterval,
-      Buffer,
-      process,
-      global: {}
-    };
-    
-    sandbox.this = sandbox;
-    vm.createContext(sandbox);
-    vm.runInContext(elmCode, sandbox);
-    
-    const { Elm } = sandbox;
-    const app = Elm.Generator.init({ flags: ${JSON.stringify(ormContent)} });
-    
-    let migrations = '';
-    
-    app.ports.sendMigrations.subscribe((data) => {
-      console.log(data);
-      process.exit(0);
-    });
-    
-    app.ports.sendQueries.subscribe(() => {});
-  `;
-
-  const result = await $`node -e ${script}`.text();
-  return result.trim();
+  const result = await generate("src/ORM.elm");
+  return result.migrations;
 }
 
 test("Generated migrations should create actual SQLite tables", async () => {
