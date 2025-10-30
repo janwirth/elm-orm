@@ -4,7 +4,7 @@ import Elm.Parser
 import Elm.Processing
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.File exposing (File)
-import Elm.Syntax.Node exposing (Node(..))
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Platform
@@ -136,19 +136,16 @@ generateMigrations typeAliases =
 generateTypeDefinition : TypeAlias -> String
 generateTypeDefinition typeAlias =
     let
-        typeName =
-            typeAlias.name |> (\(Node _ name) -> name)
-
         fetchedTypeName =
-            "Fetched" ++ typeName
+            "Fetched" ++ Node.value typeAlias.name
 
         fieldsList =
             case typeAlias.typeAnnotation of
                 Node _ (Record recordDefinition) ->
                     recordDefinition
                         |> List.map
-                            (\(Node _ ( field, _ )) ->
-                                field |> (\(Node _ name) -> name)
+                            (\(Node _ ( Node _ fieldName, _ )) ->
+                                fieldName
                             )
 
                 _ ->
@@ -160,17 +157,14 @@ generateTypeDefinition typeAlias =
                 Node _ (Record recordDefinition) ->
                     recordDefinition
                         |> List.map
-                            (\(Node _ ( field, fieldType )) ->
+                            (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                                 let
-                                    fieldName =
-                                        field |> (\(Node _ name) -> name)
-
                                     fieldTypeStr =
                                         case fieldType of
-                                            Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                            Typed (Node _ ( _, "Bool" )) _ ->
                                                 "Bool"
 
-                                            Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                            Typed (Node _ ( _, "Int" )) _ ->
                                                 "Int"
 
                                             _ ->
@@ -190,7 +184,7 @@ generateQueryFunctions : TypeAlias -> String
 generateQueryFunctions typeAlias =
     let
         typeName =
-            typeAlias.name |> (\(Node _ name) -> name)
+            Node.value typeAlias.name
 
         lowerTypeName =
             String.toLower typeName
@@ -212,17 +206,14 @@ generateQueryFunctions typeAlias =
         decoderFields =
             fields
                 |> List.map
-                    (\(Node _ ( field, fieldType )) ->
+                    (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                         let
-                            fieldName =
-                                field |> (\(Node _ name) -> name)
-
                             decoderType =
                                 case fieldType of
-                                    Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                    Typed (Node _ ( _, "Bool" )) _ ->
                                         "Decode.bool"
 
-                                    Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                    Typed (Node _ ( _, "Int" )) _ ->
                                         "Decode.int"
 
                                     _ ->
@@ -250,17 +241,14 @@ generateQueryFunctions typeAlias =
         typeSpecificDecoderFields =
             fields
                 |> List.map
-                    (\(Node _ ( field, fieldType )) ->
+                    (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                         let
-                            fieldName =
-                                field |> (\(Node _ name) -> name)
-
                             decoderType =
                                 case fieldType of
-                                    Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                    Typed (Node _ ( _, "Bool" )) _ ->
                                         "Decode.bool"
 
-                                    Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                    Typed (Node _ ( _, "Int" )) _ ->
                                         "Decode.int"
 
                                     _ ->
@@ -279,17 +267,14 @@ generateQueryFunctions typeAlias =
             -- Start with the type-specific fields
             fields
                 |> List.map
-                    (\(Node _ ( field, fieldType )) ->
+                    (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                         let
-                            fieldName =
-                                field |> (\(Node _ name) -> name)
-
                             decoderType =
                                 case fieldType of
-                                    Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                    Typed (Node _ ( _, "Bool" )) _ ->
                                         "Decode.bool"
 
-                                    Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                    Typed (Node _ ( _, "Int" )) _ ->
                                         "Decode.int"
 
                                     _ ->
@@ -349,8 +334,8 @@ generateInsertFields : List (Node ( Node String, Node TypeAnnotation )) -> Strin
 generateInsertFields fields =
     fields
         |> List.map
-            (\(Node _ ( field, _ )) ->
-                field |> (\(Node _ name) -> name)
+            (\(Node _ ( Node _ fieldName, _ )) ->
+                fieldName
             )
         |> String.join ", "
 
@@ -368,17 +353,14 @@ generateInsertValues recordName fields =
             else
                 fields
                     |> List.map
-                        (\(Node _ ( field, fieldType )) ->
+                        (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                             let
-                                fieldName =
-                                    field |> (\(Node _ name) -> name)
-
                                 valueExpr =
                                     case fieldType of
-                                        Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                        Typed (Node _ ( _, "Int" )) _ ->
                                             recordName ++ "." ++ fieldName ++ " |> String.fromInt"
 
-                                        Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                        Typed (Node _ ( _, "Bool" )) _ ->
                                             "(if " ++ recordName ++ "." ++ fieldName ++ " then \"1\" else \"0\")"
 
                                         _ ->
@@ -394,28 +376,22 @@ generateInsertValues recordName fields =
 generateCreateTable : TypeAlias -> String
 generateCreateTable typeAlias =
     let
-        typeName =
-            typeAlias.name |> (\(Node _ name) -> name)
-
         tableName =
-            String.toLower typeName ++ "s"
+            String.toLower (Node.value typeAlias.name) ++ "s"
 
         fieldColumns =
             case typeAlias.typeAnnotation of
                 Node _ (Record recordDefinition) ->
                     recordDefinition
                         |> List.map
-                            (\(Node _ ( field, fieldType )) ->
+                            (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                                 let
-                                    fieldName =
-                                        field |> (\(Node _ name) -> name)
-
                                     sqlType =
                                         case fieldType of
-                                            Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                            Typed (Node _ ( _, "Bool" )) _ ->
                                                 "BOOLEAN"
 
-                                            Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                            Typed (Node _ ( _, "Int" )) _ ->
                                                 "INTEGER"
 
                                             _ ->
@@ -442,17 +418,14 @@ generateCreateTable typeAlias =
                 Node _ (Record recordDefinition) ->
                     recordDefinition
                         |> List.map
-                            (\(Node _ ( field, fieldType )) ->
+                            (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                                 let
-                                    fieldName =
-                                        field |> (\(Node _ name) -> name)
-
                                     sqlType =
                                         case fieldType of
-                                            Node _ (Typed (Node _ ( _, "Bool" )) _) ->
+                                            Typed (Node _ ( _, "Bool" )) _ ->
                                                 "BOOLEAN"
 
-                                            Node _ (Typed (Node _ ( _, "Int" )) _) ->
+                                            Typed (Node _ ( _, "Int" )) _ ->
                                                 "INTEGER"
 
                                             _ ->
