@@ -42,10 +42,6 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { results = [], testStatus = NotStarted }
     , operations
-        { migrate = usersCreateTable
-        , insert = createUserQuery { name = "John Doe", age = 30 }
-        , query = getAllUsersQuery
-        }
     )
 
 

@@ -21,4 +21,22 @@ test("Generated migrations should match fixture exactly", async () => {
   expect(result.migrations.trim()).toBe(expectedMigrations.trim());
 });
 
-// When I run `bun run
+test("Generated queries should match fixture exactly", async () => {
+  const expectedQueries = await Bun.file(
+    "fixtures/GeneratedAdvanced/Queries.elm"
+  ).text();
+
+  const result = await generate("fixtures/AdvancedSchema.elm");
+
+  expect(result.queries.trim()).toBe(expectedQueries.trim());
+});
+
+test("Generated migrations should match fixture exactly", async () => {
+  const expectedMigrations = await Bun.file(
+    "fixtures/GeneratedAdvanced/AdvancedMigrations.elm"
+  ).text();
+
+  const result = await generate("fixtures/AdvancedSchema.elm");
+
+  expect(result.migrations.trim()).toBe(expectedMigrations.trim());
+});

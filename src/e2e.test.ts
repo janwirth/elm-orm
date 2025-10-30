@@ -20,15 +20,7 @@ test("TestApp should execute migrations and queries correctly", async () => {
         };
         console.log("query:", migrate);
         // await db.run("CREATE TABLE USERS (id INTEGER)");
-        await db.run(`CREATE TABLE users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        age INTEGER,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-`);
+        await db.run(migrate);
         const x = await db.query(insert).run();
         const y = await db.query(query).get();
         console.log("x:", y);
