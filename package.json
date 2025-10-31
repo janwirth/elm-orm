@@ -18,7 +18,8 @@
     "build": "bun build ./index.ts --outdir ./dist --target node"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "elm-review": "^2.13.4"
   },
   "peerDependencies": {
     "typescript": "^5"

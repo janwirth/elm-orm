@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "automatically created by": "elm-review suppress",
+  "learn more": "elm-review suppress --help",
+  "suppressions": [
+    { "count": 3, "filePath": "src/Orm.elm" },
+    { "count": 2, "filePath": "src/TestApp.elm" },
+    { "count": 1, "filePath": "fixtures/AdvancedSchema.elm" }
+  ]
+}

@@ -1,7 +1,5 @@
 port module TestApp exposing (main)
 
-import Generated.Migrations exposing (..)
-import Generated.Queries exposing (..)
 import Json.Encode as Encode
 import Platform
 
