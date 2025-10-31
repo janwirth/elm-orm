@@ -7,6 +7,7 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
+import List.Extra
 import Platform
 
 
@@ -410,7 +411,7 @@ generateCreateTable typeAlias =
             , "        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL"
             , "        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL"
             ]
-                |> List.filter (String.isEmpty >> not)
+                |> List.Extra.removeWhen String.isEmpty
                 |> String.join ",\n"
 
         alterTableStatements =
