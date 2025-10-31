@@ -1,4 +1,4 @@
-port module Generator exposing (main)
+port module Generator exposing (Model, Msg, main)
 
 import Elm.Parser
 import Elm.Processing
