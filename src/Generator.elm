@@ -1,5 +1,10 @@
 port module Generator exposing (Model, Msg, main)
 
+import Elm
+import Elm.Annotation as Annotation
+import Elm.Arg
+import Elm.Op
+import Elm.Op.Extra
 import Elm.Parser
 import Elm.Processing
 import Elm.Syntax.Declaration exposing (Declaration(..))
@@ -7,8 +12,13 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
+import Gen.Json.Decode as Decode
+import Gen.Json.Decode.Pipeline as Pipeline
+import Gen.String
+import Gen.Time
 import List.Extra
 import Platform
+import String.Extra
 
 
 
@@ -104,20 +114,19 @@ extractTypeAliases file =
 generateQueries : List TypeAlias -> String
 generateQueries typeAliases =
     let
-        queriesHeader =
-            "module Generated.Queries exposing (..)\n\nimport Json.Decode as Decode\nimport Json.Decode.Pipeline exposing (required)\nimport Time exposing (Posix)\nimport Time exposing (millisToPosix)\nimport Schema exposing (..)\n\n"
-
+        typeDefinitions : List Elm.Declaration
         typeDefinitions =
             typeAliases
                 |> List.map generateTypeDefinition
-                |> String.join "\n\n"
 
+        queryFunctions : List Elm.Declaration
         queryFunctions =
             typeAliases
-                |> List.map generateQueryFunctions
-                |> String.join "\n\n"
+                |> List.concatMap generateQueryFunctions
     in
-    queriesHeader ++ typeDefinitions ++ "\n\n" ++ queryFunctions
+    (Elm.file [ "Generated", "Queries" ]
+        (List.map Elm.expose (typeDefinitions ++ queryFunctions))
+    ).contents
 
 
 generateMigrations : List TypeAlias -> String
@@ -134,68 +143,68 @@ generateMigrations typeAliases =
     migrationsHeader ++ sqlStatements
 
 
-generateTypeDefinition : TypeAlias -> String
+generateTypeDefinition : TypeAlias -> Elm.Declaration
 generateTypeDefinition typeAlias =
     let
         fetchedTypeName =
             "Fetched" ++ Node.value typeAlias.name
 
-        fieldsList =
-            case typeAlias.typeAnnotation of
-                Node _ (Record recordDefinition) ->
-                    recordDefinition
-                        |> List.map
-                            (\(Node _ ( Node _ fieldName, _ )) ->
-                                fieldName
-                            )
-
-                _ ->
-                    []
-
         -- Dynamically generate fields based on the type alias
-        fieldsString =
+        fields =
             case typeAlias.typeAnnotation of
                 Node _ (Record recordDefinition) ->
                     recordDefinition
                         |> List.map
                             (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
                                 let
-                                    fieldTypeStr =
+                                    fieldAnnotation =
                                         case fieldType of
                                             Typed (Node _ ( _, "Bool" )) _ ->
-                                                "Bool"
+                                                Annotation.bool
 
                                             Typed (Node _ ( _, "Int" )) _ ->
-                                                "Int"
+                                                Annotation.int
 
                                             _ ->
-                                                "String"
+                                                Annotation.string
                                 in
-                                "    , " ++ fieldName ++ " : " ++ fieldTypeStr
+                                ( fieldName, fieldAnnotation )
                             )
-                        |> String.join "\n"
 
                 _ ->
-                    ""
+                    []
     in
-    "type alias " ++ fetchedTypeName ++ " =\n    { id : Int\n    , createdAt : Posix\n    , updatedAt : Posix\n" ++ fieldsString ++ "\n    }"
+    Elm.alias fetchedTypeName
+        (Annotation.record
+            ([ ( "id", Annotation.int )
+             , ( "createdAt", Gen.Time.annotation_.posix )
+             , ( "updatedAt", Gen.Time.annotation_.posix )
+             ]
+                ++ fields
+            )
+        )
 
 
-generateQueryFunctions : TypeAlias -> String
+generateQueryFunctions : TypeAlias -> List Elm.Declaration
 generateQueryFunctions typeAlias =
     let
+        typeName : String
         typeName =
             Node.value typeAlias.name
 
+        lowerTypeName : String
         lowerTypeName =
-            String.toLower typeName
+            String.Extra.decapitalize typeName
 
+        pluralName : String
         pluralName =
             lowerTypeName ++ "s"
 
+        fetchedTypeName : String
         fetchedTypeName =
             "Fetched" ++ typeName
 
+        fields : Elm.Syntax.TypeAnnotation.RecordDefinition
         fields =
             case typeAlias.typeAnnotation of
                 Node _ (Record recordDefinition) ->
@@ -204,174 +213,138 @@ generateQueryFunctions typeAlias =
                 _ ->
                     []
 
-        decoderFields =
-            fields
-                |> List.map
-                    (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
-                        let
-                            decoderType =
-                                case fieldType of
-                                    Typed (Node _ ( _, "Bool" )) _ ->
-                                        "Decode.bool"
-
-                                    Typed (Node _ ( _, "Int" )) _ ->
-                                        "Decode.int"
-
-                                    _ ->
-                                        "Decode.string"
-                        in
-                        "(Decode.field \"" ++ fieldName ++ "\" " ++ decoderType ++ ")"
-                    )
-                |> String.join "\n        "
-
-        -- Count fields to determine the correct Decode.mapN function
-        fieldCount =
-            List.length fields + 3
-
-        -- +3 for id, createdAt, updatedAt
-        mapFunction =
-            "Decode.map" ++ String.fromInt fieldCount
-
-        -- Built-in fields for every model
-        builtInDecoderFields =
-            [ "(Decode.field \"id\" Decode.int)"
-            , "(Decode.field \"createdAt\" Decode.int |> Decode.map millisToPosix)"
-            , "(Decode.field \"updatedAt\" Decode.int |> Decode.map millisToPosix)"
-            ]
-
-        typeSpecificDecoderFields =
-            fields
-                |> List.map
-                    (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
-                        let
-                            decoderType =
-                                case fieldType of
-                                    Typed (Node _ ( _, "Bool" )) _ ->
-                                        "Decode.bool"
-
-                                    Typed (Node _ ( _, "Int" )) _ ->
-                                        "Decode.int"
-
-                                    _ ->
-                                        "Decode.string"
-                        in
-                        "(Decode.field \"" ++ fieldName ++ "\" " ++ decoderType ++ ")"
-                    )
-
-        -- Combine built-in fields with custom fields
-        allDecoderFields =
-            List.append builtInDecoderFields typeSpecificDecoderFields
-                |> String.join "\n        "
-
         -- Generate pipeline-style decoder fields
-        pipelineDecoderFields =
-            -- Start with the type-specific fields
-            fields
-                |> List.map
-                    (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
-                        let
-                            decoderType =
-                                case fieldType of
-                                    Typed (Node _ ( _, "Bool" )) _ ->
-                                        "Decode.bool"
+        pipelineDecoderFields : Elm.Expression -> Elm.Expression
+        pipelineDecoderFields initial =
+            List.foldl
+                (\(Node _ ( Node _ fieldName, Node _ fieldType )) acc ->
+                    let
+                        decoderType : Elm.Expression
+                        decoderType =
+                            case fieldType of
+                                Typed (Node _ ( _, "Bool" )) _ ->
+                                    Decode.bool
 
-                                    Typed (Node _ ( _, "Int" )) _ ->
-                                        "Decode.int"
+                                Typed (Node _ ( _, "Int" )) _ ->
+                                    Decode.int
 
-                                    _ ->
-                                        "Decode.string"
-                        in
-                        "required \"" ++ fieldName ++ "\" " ++ decoderType
-                    )
-                -- Then add the built-in fields
-                |> List.append
-                    [ "required \"id\" Decode.int"
-                    , "required \"createdAt\" (Decode.int |> Decode.map millisToPosix)"
-                    , "required \"updatedAt\" (Decode.int |> Decode.map millisToPosix)"
-                    ]
-                |> List.map (\field -> "|> " ++ field)
-                |> String.join "\n        "
+                                _ ->
+                                    Decode.string
+                    in
+                    acc
+                        |> Elm.Op.Extra.pipe (Pipeline.required fieldName decoderType)
+                )
+                initial
+                fields
 
+        decodeTime : Elm.Expression
+        decodeTime =
+            Decode.map Gen.Time.call_.millisToPosix Decode.int
+
+        decoder : Elm.Declaration
         decoder =
-            lowerTypeName
-                ++ "Decoder : Decode.Decoder "
-                ++ fetchedTypeName
-                ++ "\n"
-                ++ lowerTypeName
-                ++ "Decoder =\n    Decode.succeed "
-                ++ fetchedTypeName
-                ++ "\n        "
-                ++ pipelineDecoderFields
+            Elm.declaration (lowerTypeName ++ "Decoder")
+                (Decode.succeed (Elm.val fetchedTypeName)
+                    |> Elm.Op.Extra.pipe (Pipeline.required "id" Decode.int)
+                    |> Elm.Op.Extra.pipe (Pipeline.required "createdAt" decodeTime)
+                    |> Elm.Op.Extra.pipe (Pipeline.required "updatedAt" decodeTime)
+                    |> pipelineDecoderFields
+                    |> Elm.withType (Decode.annotation_.decoder (Annotation.named [] fetchedTypeName))
+                )
 
         createQueryImpl =
-            if typeName == "User" then
-                "createUserQuery user = \"INSERT INTO users (name, age) VALUES (\\\"\" ++ user.name ++ \"\\\", \" ++ String.fromInt user.age ++ \")\""
+            case typeName of
+                "User" ->
+                    Elm.fn (Elm.Arg.varWith "user" (Annotation.named [] typeName))
+                        (\user ->
+                            insertQuery "users"
+                                [ "name", "age" ]
+                                [ user |> Elm.get "name"
+                                , Gen.String.call_.fromInt (user |> Elm.get "age")
+                                ]
+                        )
 
-            else if typeName == "Todo" then
-                "createTodoQuery todo = \"INSERT INTO todos (description, completed) VALUES (\\\"\" ++ todo.description ++ \"\\\", \" ++  (if todo.completed then \"1\" else \"0\") ++ \")\""
+                "Todo" ->
+                    Elm.fn (Elm.Arg.varWith "todo" (Annotation.named [] typeName))
+                        (\todo ->
+                            insertQuery "todos"
+                                [ "description", "completed" ]
+                                [ todo |> Elm.get "description"
+                                , Elm.ifThen (todo |> Elm.get "completed")
+                                    (Elm.string "1")
+                                    (Elm.string "0")
+                                ]
+                        )
 
-            else
-                "create" ++ typeName ++ "Query " ++ lowerTypeName ++ " = \"INSERT INTO " ++ pluralName ++ " (" ++ generateInsertFields fields ++ ") VALUES (\" ++ " ++ generateInsertValues lowerTypeName fields ++ " ++ \")\""
+                _ ->
+                    Elm.fn (Elm.Arg.varWith lowerTypeName (Annotation.named [] typeName))
+                        (\value ->
+                            insertQuery pluralName
+                                (generateInsertFields fields)
+                                (generateInsertValues value fields)
+                        )
 
+        queries : List Elm.Declaration
         queries =
-            [ "create" ++ typeName ++ "Query : " ++ typeName ++ " -> String"
-            , createQueryImpl
-            , ""
-            , "get" ++ typeName ++ "Query : Int -> String"
-            , "get" ++ typeName ++ "Query id = \"SELECT * FROM " ++ pluralName ++ " WHERE id = \" ++ String.fromInt id"
-            , ""
-            , "getAll" ++ typeName ++ "sQuery : String"
-            , "getAll" ++ typeName ++ "sQuery = \"SELECT * FROM " ++ pluralName ++ "\""
-            , ""
-            , "delete" ++ typeName ++ "Query : Int -> String"
-            , "delete" ++ typeName ++ "Query id = \"DELETE FROM " ++ pluralName ++ " WHERE id = \" ++ String.fromInt id"
+            [ Elm.declaration ("create" ++ typeName ++ "Query") createQueryImpl
+            , Elm.declaration ("get" ++ typeName ++ "Query")
+                (Elm.fn (Elm.Arg.var "id")
+                    (\id ->
+                        Elm.Op.append
+                            (Elm.string ("SELECT * FROM " ++ pluralName ++ " WHERE id = "))
+                            (Gen.String.call_.fromInt id)
+                    )
+                )
+            , Elm.declaration ("getAll" ++ typeName ++ "sQuery")
+                (Elm.string ("SELECT * FROM " ++ pluralName))
+            , Elm.declaration ("delete" ++ typeName ++ "Query")
+                (Elm.fn (Elm.Arg.var "id")
+                    (\id ->
+                        Elm.Op.append
+                            (Elm.string ("DELETE FROM " ++ pluralName ++ " WHERE id = "))
+                            (Gen.String.call_.fromInt id)
+                    )
+                )
             ]
-                |> String.join "\n"
     in
-    decoder ++ "\n\n" ++ queries
+    decoder :: queries
 
 
-generateInsertFields : List (Node ( Node String, Node TypeAnnotation )) -> String
+insertQuery : String -> List String -> List Elm.Expression -> Elm.Expression
+insertQuery table fields values =
+    Elm.Op.Extra.concatStrings
+        (Elm.string ("INSERT INTO " ++ table ++ " (" ++ String.join ", " fields ++ ") VALUES (\"")
+            :: List.intersperse (Elm.string "\" , \"") values
+            ++ [ Elm.string "\")" ]
+        )
+
+
+generateInsertFields : List (Node ( Node String, Node TypeAnnotation )) -> List String
 generateInsertFields fields =
     fields
         |> List.map
             (\(Node _ ( Node _ fieldName, _ )) ->
                 fieldName
             )
-        |> String.join ", "
 
 
-generateInsertValues : String -> List (Node ( Node String, Node TypeAnnotation )) -> String
+generateInsertValues : Elm.Expression -> List (Node ( Node String, Node TypeAnnotation )) -> List Elm.Expression
 generateInsertValues recordName fields =
-    let
-        userCase =
-            if recordName == "user" then
-                "user.name ++ \", \" ++ String.fromInt user.age"
+    fields
+        |> List.map
+            (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
+                case fieldType of
+                    Typed (Node _ ( _, "Int" )) _ ->
+                        Gen.String.call_.fromInt (recordName |> Elm.get fieldName)
 
-            else if recordName == "todo" then
-                "todo.description ++ \", \" ++  (if todo.completed then \"1\" else \"0\")"
+                    Typed (Node _ ( _, "Bool" )) _ ->
+                        Elm.ifThen (recordName |> Elm.get fieldName)
+                            (Elm.string "1")
+                            (Elm.string "0")
 
-            else
-                fields
-                    |> List.map
-                        (\(Node _ ( Node _ fieldName, Node _ fieldType )) ->
-                            let
-                                valueExpr =
-                                    case fieldType of
-                                        Typed (Node _ ( _, "Int" )) _ ->
-                                            recordName ++ "." ++ fieldName ++ " |> String.fromInt"
-
-                                        Typed (Node _ ( _, "Bool" )) _ ->
-                                            "(if " ++ recordName ++ "." ++ fieldName ++ " then \"1\" else \"0\")"
-
-                                        _ ->
-                                            recordName ++ "." ++ fieldName
-                            in
-                            valueExpr
-                        )
-                    |> String.join ", "
-    in
-    userCase
+                    _ ->
+                        recordName |> Elm.get fieldName
+            )
 
 
 generateCreateTable : TypeAlias -> String
