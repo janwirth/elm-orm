@@ -2,7 +2,8 @@
     "type": "application",
     "source-directories": [
         "src",
-        "fixtures"
+        "fixtures",
+        "codegen"
     ],
     "elm-version": "0.19.1",
     "dependencies": {
@@ -12,13 +13,16 @@
             "elm/json": "1.1.4",
             "elm/time": "1.0.0",
             "elmcraft/core-extra": "2.2.0",
-            "stil4m/elm-syntax": "7.3.6"
+            "mdgriffith/elm-codegen": "5.2.0",
+            "stil4m/elm-syntax": "7.3.9"
         },
         "indirect": {
             "elm/parser": "1.1.0",
             "elm/regex": "1.0.0",
+            "elm-community/basics-extra": "4.1.0",
             "rtfeldman/elm-hex": "1.0.0",
-            "stil4m/structured-writer": "1.0.3"
+            "stil4m/structured-writer": "1.0.3",
+            "the-sett/elm-pretty-printer": "3.1.2"
         }
     },
     "test-dependencies": {
