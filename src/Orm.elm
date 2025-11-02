@@ -1,4 +1,4 @@
-module Orm exposing (..)
+module Orm exposing (Backlink(..), Multilink(..), Vector(..))
 
 -- WE are basically using opaque types as annotations
 {--Makes an outbound link, registers join table in the database --}

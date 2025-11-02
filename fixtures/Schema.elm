@@ -1,10 +1,11 @@
-module Schema exposing (..)
-
+module Schema exposing (Todo, User)
 
 -- User-defined types
+
+
 type alias User =
     { name : String
-    , age: Int
+    , age : Int
     }
 
 
